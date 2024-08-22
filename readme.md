@@ -1,6 +1,6 @@
 # Modern Portfolio Theory - ETF Asset Allocation
 
-This project implements a Modern Portfolio Theory (MPT) application using Python and Streamlit. The application allows users to visualize the efficient frontier, explore ETF allocations, and optimize portfolios based on Sharpe ratios. 
+This project implements a Modern Portfolio Theory (MPT) application using Python and Streamlit. The application allows users to visualize the efficient frontier, explore ETF allocations, and optimize portfolios based on Sharpe ratios. Portfolio Stress Testing Monte Carlo Simulation. 
 
 ## Features
 - **Efficient Frontier Visualization**: See the trade-off between risk and return for different portfolios.
