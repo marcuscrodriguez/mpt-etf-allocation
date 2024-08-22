@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from datetime import datetime, timedelta
 from sklearn.linear_model import LinearRegression
-#by: Marcus C. Rodriguez, ETF Asset Allocation MPT 
-st.title("Modern Portfolio Theory: ")
+#by Marcus C. Rodriguez
+
+st.title("Modern Portfolio Theory")
 
 # Sidebar for user input
 st.sidebar.header("Select Parameters")
@@ -37,7 +38,6 @@ categories = {
     "Commodities - Gold": ["IAU"],   
     "Real Estate - REITs": ["XLRE"],
 }
-
 # Input for risk-free rate
 risk_free_rate = st.sidebar.number_input("Enter Risk-Free Rate (in %)", min_value=0.0, value=5.48) / 100
 
@@ -91,15 +91,26 @@ def calculate_efficient_frontier(mean_returns, cov_matrix, num_portfolios=100):
 
     return results, weights_record
 
-# Calculate efficient frontier
-results, weights_record = calculate_efficient_frontier(mean_returns, cov_matrix)
+# Use Streamlit session state to store the efficient frontier portfolios
+if 'efficient_frontier' not in st.session_state:
+    results, weights_record = calculate_efficient_frontier(mean_returns, cov_matrix)
+    sorted_indices = np.argsort(results[0])
+    sorted_volatility = results[0][sorted_indices]
+    sorted_returns = results[1][sorted_indices]
+    sorted_sharpe_ratios = results[2][sorted_indices]
+    sorted_weights = [weights_record[i] for i in sorted_indices]
+    st.session_state.efficient_frontier = {
+        'volatility': sorted_volatility,
+        'returns': sorted_returns,
+        'sharpe_ratios': sorted_sharpe_ratios,
+        'weights': sorted_weights
+    }
 
-# Sort the results by volatility (ascending order)
-sorted_indices = np.argsort(results[0])
-sorted_volatility = results[0][sorted_indices]
-sorted_returns = results[1][sorted_indices]
-sorted_sharpe_ratios = results[2][sorted_indices]
-sorted_weights = [weights_record[i] for i in sorted_indices]
+# Access the stored efficient frontier portfolios
+sorted_volatility = st.session_state.efficient_frontier['volatility']
+sorted_returns = st.session_state.efficient_frontier['returns']
+sorted_sharpe_ratios = st.session_state.efficient_frontier['sharpe_ratios']
+sorted_weights = st.session_state.efficient_frontier['weights']
 
 # Regression line calculation
 x = sorted_volatility.reshape(-1, 1)  # Volatility (Std. Deviation)
@@ -115,9 +126,67 @@ optimal_weights = opt_sharpe.x
 optimal_return, optimal_volatility, optimal_sharpe_ratio = portfolio_performance(optimal_weights, mean_returns, cov_matrix)
 
 # Slider to adjust allocation on the efficient frontier
-st.sidebar.header("Adjust Allocation")
+st.sidebar.header("Adjust Risk/Return")
 allocation_slider = st.sidebar.slider("Select the desired portfolio position (0 = min risk, 1 = max return)", 0.0, 1.0, 0.0)
 allocation_index = int(allocation_slider * (len(regression_line) - 1))
+
+# Show selected portfolio's details
+selected_portfolio_return = regression_line[allocation_index]
+selected_portfolio_volatility = x[allocation_index][0]
+selected_portfolio_sharpe = sorted_sharpe_ratios[allocation_index]
+selected_portfolio_weights = sorted_weights[allocation_index]
+selected_portfolio_weights_df = pd.DataFrame(selected_portfolio_weights, index=etfs, columns=['Weight'])
+
+# Plot efficient frontier with regression line and visual point
+st.header("ETF Asset Allocation", divider="rainbow")
+fig, ax = plt.subplots()
+ax.plot(x, regression_line, color='blue', linestyle='-', label="Regression Line")
+ax.scatter([selected_portfolio_volatility], [selected_portfolio_return], color='red', label="Selected Portfolio")
+ax.set_xlabel('Volatility (Std. Deviation)')
+ax.set_ylabel('Expected Returns')
+ax.set_title('Efficient Frontier')
+
+st.pyplot(fig)
+
+# Monte Carlo Simulation for Stress Testing
+st.header("Portfolio Stress Testing", divider ="rainbow")
+
+# Monte Carlo parameters
+num_simulations = 10000
+time_horizon = 10
+
+# Simulate portfolio returns
+simulated_returns = np.random.multivariate_normal(
+    mean_returns.values, cov_matrix, (num_simulations, time_horizon)
+).reshape(num_simulations, time_horizon, len(etfs))
+
+# Calculate portfolio values for each simulation
+simulated_portfolio_values = np.dot(simulated_returns, selected_portfolio_weights)
+
+# Calculate statistics
+mean_portfolio_value = np.mean(simulated_portfolio_values)
+std_portfolio_value = np.std(simulated_portfolio_values)
+portfolio_range = np.linspace(mean_portfolio_value - 5 * std_portfolio_value, mean_portfolio_value + 5 * std_portfolio_value, 100)
+
+# Plot simulation results
+fig3, ax3 = plt.subplots()
+ax3.hist(simulated_portfolio_values[:, -1], bins=50, color='skyblue', edgecolor='black')
+ax3.axvline(mean_portfolio_value, color='red', linestyle='dashed', linewidth=2)
+ax3.set_xlabel('Portfolio Value')
+ax3.set_ylabel('Frequency')
+ax3.set_title('Monte Carlo Simulation - Distribution of Portfolio Values')
+st.pyplot(fig3)
+
+# Display simulation statistics
+st.write(f"Range of Outcomes (±5 Std Dev): {mean_portfolio_value - 5 * 100* std_portfolio_value:.2f}% to {mean_portfolio_value + 5 * 100* std_portfolio_value:.2f}%")
+
+# Display selected portfolio details
+st.header("Selected Portfolio Metrics", divider="rainbow")
+st.write(f"Expected Return: {selected_portfolio_return:.2%}")
+st.write(f"Volatility (Risk): {selected_portfolio_volatility:.2%}")
+st.write(f"Sharpe Ratio: {selected_portfolio_sharpe:.2f}")
+
+# ETF List/Links
 st.sidebar.header("ETF Links", divider="rainbow")
 url1 = "https://www.ssga.com/us/en/intermediary/etfs/funds/spdr-bloomberg-1-3-month-t-bill-etf-bil"
 url2 = "https://www.ishares.com/us/products/333011/ishares-bitcoin-trust"
@@ -145,31 +214,6 @@ st.sidebar.write("[SCZ](%s)" % url10)
 st.sidebar.write("[IAU](%s)" % url11)
 st.sidebar.write("[DBC](%s)" % url12)
 st.sidebar.write("[XLRE](%s)" % url13)
-
-# Show selected portfolio's details
-selected_portfolio_return = regression_line[allocation_index]
-selected_portfolio_volatility = x[allocation_index][0]
-selected_portfolio_sharpe = sorted_sharpe_ratios[allocation_index]
-selected_portfolio_weights = sorted_weights[allocation_index]
-selected_portfolio_weights_df = pd.DataFrame(selected_portfolio_weights, index=etfs, columns=['Weight'])
-
-# Plot efficient frontier with regression line and visual point
-st.header("Efficient Frontier | ETF Asset Allocation", divider="rainbow")
-fig, ax = plt.subplots()
-ax.plot(x, regression_line, color='blue', linestyle='-', label="Regression Line")
-ax.scatter([selected_portfolio_volatility], [selected_portfolio_return], color='red', label="Selected Portfolio")
-ax.set_xlabel('Volatility (Std. Deviation)')
-ax.set_ylabel('Expected Returns')
-ax.set_title('Efficient Frontier')
-
-st.pyplot(fig)
-
-# Display selected portfolio details
-st.header("Selected Portfolio Details", divider="rainbow")
-st.write(f"Expected Return: {selected_portfolio_return:.2%}")
-st.write(f"Volatility (Risk): {selected_portfolio_volatility:.2%}")
-st.write(f"Sharpe Ratio: {selected_portfolio_sharpe:.2f}")
-st.dataframe(selected_portfolio_weights_df.T)
 
 # Aggregate weights by simplified category
 simplified_category_weights = {
