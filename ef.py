@@ -9,6 +9,8 @@ from sklearn.linear_model import LinearRegression
 #by Marcus C. Rodriguez
 
 st.title("Modern Portfolio Theory")
+url14="https://www.marcusc.com"
+st.write("by: Marcus C. Rodriguez [www.marcusc.com](%s)" % url14)
 
 # Sidebar for user input
 st.sidebar.header("Select Parameters")
@@ -127,7 +129,7 @@ optimal_return, optimal_volatility, optimal_sharpe_ratio = portfolio_performance
 
 # Slider to adjust allocation on the efficient frontier
 st.sidebar.header("Adjust Risk/Return")
-allocation_slider = st.sidebar.slider("Select the desired portfolio position (0 = min risk, 1 = max return)", 0.0, 1.0, 0.0)
+allocation_slider = st.sidebar.slider("Select the desired portfolio position (0 = min risk, 1 = max return)", 0.0, 1.0, 0.5)
 allocation_index = int(allocation_slider * (len(regression_line) - 1))
 
 # Show selected portfolio's details
