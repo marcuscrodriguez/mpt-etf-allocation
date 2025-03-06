@@ -48,7 +48,7 @@ end_date = datetime.today().strftime('%Y-%m-%d')
 start_date = (datetime.today() - timedelta(days=365 * 10)).strftime('%Y-%m-%d')
 
 # Get data
-data = yf.download(etfs, start=start_date, end=end_date)['Adj Close']
+data = yf.download(etfs, start=start_date, end=end_date, auto_adjust=False)['Adj Close']
 
 # Calculate log returns
 returns = np.log(data / data.shift(1))
@@ -116,7 +116,13 @@ sorted_weights = st.session_state.efficient_frontier['weights']
 
 # Regression line calculation
 x = sorted_volatility.reshape(-1, 1)  # Volatility (Std. Deviation)
-y = sorted_returns  # Expected Returns
+y = sorted_returns # Expected Returns
+
+# Handle NaN values by replacing them with the column mean
+if np.isnan(x).any() or np.isnan(y).any():
+    x = np.nan_to_num(x, nan=np.nanmean(x))  # Replace NaN with column mean
+    y = np.nan_to_num(y, nan=np.nanmean(y))  # Replace NaN with column mean
+
 regressor = LinearRegression()
 regressor.fit(x, y)
 regression_line = regressor.predict(x)
